@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generate-btn');
     const pageList = document.getElementById('page-list');
     const messageDiv = document.getElementById('message');
+    const container = document.querySelector('.container');
+    const pageContainer = document.getElementById('page-container');
     
     // 页面加载时显示已生成的页面列表
     loadPageList();
@@ -24,9 +26,12 @@ document.addEventListener('DOMContentLoaded', function() {
         pages.forEach(page => {
             const li = document.createElement('li');
             const a = document.createElement('a');
-            a.href = page.filename;
-            a.textContent = page.date;
-            a.target = '_blank';
+            a.href = `#${page.id}`;
+            a.textContent = page.date + ' ' + page.time;
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                showGeneratedPage(page);
+            });
             li.appendChild(a);
             pageList.appendChild(li);
         });
@@ -45,73 +50,58 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const dateStr = `${year}-${month}-${day}`;
         const timeStr = `${hours}:${minutes}:${seconds}`;
-        const filename = `${dateStr}_${hours}-${minutes}-${seconds}.html`;
+        const id = `${dateStr}_${hours}-${minutes}-${seconds}`;
         
-        // 创建新页面内容
-        const pageContent = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日期页面 - ${dateStr}</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div class="page">
-        <h1>你好，测试成功啦！</h1>
-        <p>当前日期: ${dateStr}</p>
-        <p>生成时间: ${timeStr}</p>
-        <a href="index.html" class="back-link">返回主页</a>
-    </div>
-    
-    <script>
-        // 添加一些动态效果
-        document.addEventListener('DOMContentLoaded', function() {
-            const elements = document.querySelectorAll('.page > *');
-            elements.forEach((el, index) => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-                    el.style.opacity = '1';
-                    el.style.transform = 'translateY(0)';
-                }, 200 * index);
-            });
-        });
-    <\/script>
-</body>
-</html>`;
-        
-        // 创建 Blob 对象并生成 URL
-        const blob = new Blob([pageContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        
-        // 创建临时下载链接
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        
-        // 清理
-        setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 100);
+        const pageData = {
+            id: id,
+            date: dateStr,
+            time: timeStr,
+            content: "你好，测试成功啦"
+        };
         
         // 保存页面信息到 localStorage
         const pages = JSON.parse(localStorage.getItem('generatedPages') || '[]');
-        pages.unshift({
-            date: `${dateStr} ${timeStr}`,
-            filename: filename
-        });
+        pages.unshift(pageData);
         localStorage.setItem('generatedPages', JSON.stringify(pages));
         
         // 更新页面列表
         loadPageList();
         
+        // 显示新生成的页面
+        showGeneratedPage(pageData);
+        
         // 显示成功消息
-        showMessage(`页面 "${filename}" 已生成并下载！`, 'success');
+        showMessage(`页面已生成！`, 'success');
+    }
+    
+    // 显示生成的页面
+    function showGeneratedPage(pageData) {
+        // 隐藏主容器
+        container.style.display = 'none';
+        
+        // 构建页面内容
+        pageContainer.innerHTML = `
+            <div class="page-content">
+                <h1>${pageData.content}</h1>
+                <p>当前日期: ${pageData.date}</p>
+                <p>生成时间: ${pageData.time}</p>
+                <button class="back-button" id="back-button">返回主页</button>
+            </div>
+        `;
+        
+        // 显示页面容器
+        pageContainer.style.display = 'block';
+        
+        // 添加返回主页的功能
+        document.getElementById('back-button').addEventListener('click', function() {
+            pageContainer.style.display = 'none';
+            container.style.display = 'flex';
+            // 清除URL中的hash
+            history.pushState('', document.title, window.location.pathname);
+        });
+        
+        // 更新URL hash
+        window.location.hash = pageData.id;
     }
     
     // 显示消息
@@ -124,5 +114,31 @@ document.addEventListener('DOMContentLoaded', function() {
             messageDiv.textContent = '';
             messageDiv.className = '';
         }, 3000);
+    }
+    
+    // 处理页面 hash 变化
+    window.addEventListener('hashchange', function() {
+        const hash = window.location.hash.substr(1);
+        if (hash) {
+            const pages = JSON.parse(localStorage.getItem('generatedPages') || '[]');
+            const page = pages.find(p => p.id === hash);
+            if (page) {
+                showGeneratedPage(page);
+            }
+        } else {
+            // 如果hash为空，显示主页
+            pageContainer.style.display = 'none';
+            container.style.display = 'flex';
+        }
+    });
+    
+    // 页面加载时检查URL hash
+    const initialHash = window.location.hash.substr(1);
+    if (initialHash) {
+        const pages = JSON.parse(localStorage.getItem('generatedPages') || '[]');
+        const page = pages.find(p => p.id === initialHash);
+        if (page) {
+            showGeneratedPage(page);
+        }
     }
 });
